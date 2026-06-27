@@ -1,0 +1,35 @@
+var_name,code_orig,label_init,label_new
+code_pays,BEN,BEN,BEN
+code_pays,BFA,BFA,BFA
+code_pays,CIV,CIV,CIV
+code_pays,MLI,MLI,MLI
+code_pays,NER,NER,NER
+code_pays,SEN,SEN,SEN
+code_pays,TGO,TGO,TGO
+pays,Bénin,Bénin,Bénin
+pays,Burkina Faso,Burkina Faso,Burkina Faso
+pays,Côte d'Ivoire,Côte d'Ivoire,Côte d'Ivoire
+pays,Mali,Mali,Mali
+pays,Niger,Niger,Niger
+pays,Sénégal,Sénégal,Sénégal
+pays,Togo,Togo,Togo
+sexe,1,1,1
+sexe,2,2,2
+education,1,1,1
+education,2,2,2
+education,3,3,3
+education,4,4,4
+education,5,5,5
+quintile_revenu,1,1,1
+quintile_revenu,2,2,2
+quintile_revenu,3,3,3
+quintile_revenu,4,4,4
+quintile_revenu,5,5,5
+fin25_source_urgence,1,1,1
+fin25_source_urgence,2,2,2
+fin25_source_urgence,3,3,3
+fin25_source_urgence,4,4,4
+fin25_source_urgence,5,5,5
+fin25_source_urgence,6,6,6
+fin25_source_urgence,7,7,7
+fin25_source_urgence,8,8,8

@@ -1,0 +1,95 @@
+var_orig,label_orig,type_orig,n_unique,pct_na,var_new,label_new,type_new,keep
+code_pays,Code ISO pays,character,,,code_pays,Code ISO pays,character,yes
+pays,Nom du pays,character,,,pays,Nom du pays,character,yes
+annee_enquete,Annee de l enquete,numeric,,,annee_enquete,Annee de l enquete,numeric,yes
+wpid_random,Identifiant individu Gallup,numeric,,,wpid_random,Identifiant individu Gallup,numeric,yes
+wgt,Poids de sondage,numeric,,,wgt,Poids de sondage,numeric,yes
+milieu,Milieu de residence (non disponible Findex 2017),character,,,milieu,Milieu de residence (non disponible Findex 2017),character,yes
+sexe,Sexe du repondant,character,,,sexe,Sexe du repondant,character,yes
+age,Age du repondant,numeric,,,age,Age du repondant,numeric,yes
+education,Niveau d education,character,,,education,Niveau d education,character,yes
+quintile_revenu,Quintile de revenu du menage,character,,,quintile_revenu,Quintile de revenu du menage,character,yes
+actif,Statut dans la population active,numeric,,,actif,Statut dans la population active,numeric,yes
+account,Possede un compte (tous types),numeric,,,account,Possede un compte (tous types),numeric,yes
+account_fin,Possede un compte institution financiere,numeric,,,account_fin,Possede un compte institution financiere,numeric,yes
+account_mob,Possede un compte mobile money,numeric,,,account_mob,Possede un compte mobile money,numeric,yes
+mobileowner,Possede un telephone portable,numeric,,,mobileowner,Possede un telephone portable,numeric,yes
+fin48_id_nat,Possede une piece identite nationale,numeric,,,fin48_id_nat,Possede une piece identite nationale,numeric,yes
+fin2_carte_debit,Possede une carte de debit,numeric,,,fin2_carte_debit,Possede une carte de debit,numeric,yes
+fin3_carte_nom_propre,Carte de debit a son propre nom,numeric,,,fin3_carte_nom_propre,Carte de debit a son propre nom,numeric,yes
+fin4_carte_utilisee_12m,Carte de debit utilisee 12 derniers mois,numeric,,,fin4_carte_utilisee_12m,Carte de debit utilisee 12 derniers mois,numeric,yes
+fin5_mobile_acces_compte,Acces compte via mobile ou internet,numeric,,,fin5_mobile_acces_compte,Acces compte via mobile ou internet,numeric,yes
+fin6_mobile_solde,Consultation solde via mobile ou internet,numeric,,,fin6_mobile_solde,Consultation solde via mobile ou internet,numeric,yes
+fin7_carte_credit,Possede une carte de credit,numeric,,,fin7_carte_credit,Possede une carte de credit,numeric,yes
+fin8_carte_credit_utilisee,Carte credit utilisee 12 derniers mois,numeric,,,fin8_carte_credit_utilisee,Carte credit utilisee 12 derniers mois,numeric,yes
+fin9_depot_12m,Depot sur compte 12 derniers mois,numeric,,,fin9_depot_12m,Depot sur compte 12 derniers mois,numeric,yes
+fin10_retrait_12m,Retrait sur compte 12 derniers mois,numeric,,,fin10_retrait_12m,Retrait sur compte 12 derniers mois,numeric,yes
+fin11a_trop_loin,Pas de compte: trop loin,numeric,,,fin11a_trop_loin,Pas de compte: trop loin,numeric,yes
+fin11b_trop_cher,Pas de compte: trop couteux,numeric,,,fin11b_trop_cher,Pas de compte: trop couteux,numeric,yes
+fin11c_docs_manquants,Pas de compte: documents manquants,numeric,,,fin11c_docs_manquants,Pas de compte: documents manquants,numeric,yes
+fin11d_manque_confiance,Pas de compte: manque de confiance,numeric,,,fin11d_manque_confiance,Pas de compte: manque de confiance,numeric,yes
+fin11e_religion,Pas de compte: raisons religieuses,numeric,,,fin11e_religion,Pas de compte: raisons religieuses,numeric,yes
+fin11f_manque_argent,Pas de compte: manque argent,numeric,,,fin11f_manque_argent,Pas de compte: manque argent,numeric,yes
+fin11g_famille_a_compte,Pas de compte: famille a un compte,numeric,,,fin11g_famille_a_compte,Pas de compte: famille a un compte,numeric,yes
+fin11h_pas_besoin,Pas de compte: pas besoin,numeric,,,fin11h_pas_besoin,Pas de compte: pas besoin,numeric,yes
+fin14a_paiement_enligne,Paiement factures en ligne,numeric,,,fin14a_paiement_enligne,Paiement factures en ligne,numeric,yes
+fin14b_achat_enligne,Achat en ligne via internet,numeric,,,fin14b_achat_enligne,Achat en ligne via internet,numeric,yes
+saved,A epargne dans les 12 derniers mois,numeric,,,saved,A epargne dans les 12 derniers mois,numeric,yes
+fin15_epargne_agri_biz,Epargne pour agriculture ou entreprise,numeric,,,fin15_epargne_agri_biz,Epargne pour agriculture ou entreprise,numeric,yes
+fin16_epargne_retraite,Epargne pour la retraite,numeric,,,fin16_epargne_retraite,Epargne pour la retraite,numeric,yes
+fin17a_epargne_inst_fin,Epargne via institution financiere,numeric,,,fin17a_epargne_inst_fin,Epargne via institution financiere,numeric,yes
+fin17b_epargne_tontine,Epargne via tontine (informel),numeric,,,fin17b_epargne_tontine,Epargne via tontine (informel),numeric,yes
+epargne_totale,Nombre total instruments epargne utilises (0 a 4),numeric,,,epargne_totale,Nombre total instruments epargne utilises (0 a 4),numeric,yes
+borrowed,A emprunte dans les 12 derniers mois,numeric,,,borrowed,A emprunte dans les 12 derniers mois,numeric,yes
+fin19_pret_immo,Pret immobilier en cours,numeric,,,fin19_pret_immo,Pret immobilier en cours,numeric,yes
+fin20_emprunt_sante,Emprunt pour frais de sante,numeric,,,fin20_emprunt_sante,Emprunt pour frais de sante,numeric,yes
+fin21_emprunt_agri_biz,Emprunt pour agriculture ou entreprise,numeric,,,fin21_emprunt_agri_biz,Emprunt pour agriculture ou entreprise,numeric,yes
+fin22a_emprunt_inst_fin,Emprunt aupres institution financiere,numeric,,,fin22a_emprunt_inst_fin,Emprunt aupres institution financiere,numeric,yes
+fin22b_emprunt_famille,Emprunt aupres famille ou amis,numeric,,,fin22b_emprunt_famille,Emprunt aupres famille ou amis,numeric,yes
+fin22c_emprunt_tontine,Emprunt via tontine ou informel,numeric,,,fin22c_emprunt_tontine,Emprunt via tontine ou informel,numeric,yes
+fin24_fonds_urgence,Peut mobiliser fonds urgence,numeric,,,fin24_fonds_urgence,Peut mobiliser fonds urgence,numeric,yes
+fin25_source_urgence,Source principale fonds urgence,character,,,fin25_source_urgence,Source principale fonds urgence,character,yes
+fin26_envoi_transfert,A envoye transferts domestiques,numeric,,,fin26_envoi_transfert,A envoye transferts domestiques,numeric,yes
+fin27a_envoi_via_fi,Transferts envoyes via institution financiere,numeric,,,fin27a_envoi_via_fi,Transferts envoyes via institution financiere,numeric,yes
+fin27b_envoi_via_mobile,Transferts envoyes via telephone mobile,numeric,,,fin27b_envoi_via_mobile,Transferts envoyes via telephone mobile,numeric,yes
+fin27c1_envoi_especes,Transferts envoyes en especes,numeric,,,fin27c1_envoi_especes,Transferts envoyes en especes,numeric,yes
+fin27c2_envoi_mto,Transferts envoyes via operateur de transfert,numeric,,,fin27c2_envoi_mto,Transferts envoyes via operateur de transfert,numeric,yes
+fin28_recep_transfert,A recu transferts domestiques,numeric,,,fin28_recep_transfert,A recu transferts domestiques,numeric,yes
+fin29a_recep_via_fi,Transferts recus via institution financiere,numeric,,,fin29a_recep_via_fi,Transferts recus via institution financiere,numeric,yes
+fin29b_recep_via_mobile,Transferts recus via telephone mobile,numeric,,,fin29b_recep_via_mobile,Transferts recus via telephone mobile,numeric,yes
+fin29c1_recep_especes,Transferts recus en especes,numeric,,,fin29c1_recep_especes,Transferts recus en especes,numeric,yes
+fin29c2_recep_mto,Transferts recus via operateur de transfert,numeric,,,fin29c2_recep_mto,Transferts recus via operateur de transfert,numeric,yes
+fin30_paie_factures,A paye factures 12 derniers mois,numeric,,,fin30_paie_factures,A paye factures 12 derniers mois,numeric,yes
+fin31a_factures_compte,Factures payees via compte,numeric,,,fin31a_factures_compte,Factures payees via compte,numeric,yes
+fin31b_factures_mobile,Factures payees via mobile,numeric,,,fin31b_factures_mobile,Factures payees via mobile,numeric,yes
+fin31c_factures_especes,Factures payees en especes,numeric,,,fin31c_factures_especes,Factures payees en especes,numeric,yes
+fin32_salaire_12m,A recu salaire 12 derniers mois,numeric,,,fin32_salaire_12m,A recu salaire 12 derniers mois,numeric,yes
+fin33_secteur_public,Travaille dans le secteur public,numeric,,,fin33_secteur_public,Travaille dans le secteur public,numeric,yes
+fin34a_salaire_compte,Salaire recu via compte bancaire,numeric,,,fin34a_salaire_compte,Salaire recu via compte bancaire,numeric,yes
+fin34b_salaire_mobile,Salaire recu via mobile,numeric,,,fin34b_salaire_mobile,Salaire recu via mobile,numeric,yes
+fin34c1_salaire_especes,Salaire recu en especes,numeric,,,fin34c1_salaire_especes,Salaire recu en especes,numeric,yes
+fin34c2_salaire_carte,Salaire recu via carte,numeric,,,fin34c2_salaire_carte,Salaire recu via carte,numeric,yes
+fin37_transferts_etat,A recu transferts de l Etat,numeric,,,fin37_transferts_etat,A recu transferts de l Etat,numeric,yes
+fin38_pension_etat,A recu pension de l Etat,numeric,,,fin38_pension_etat,A recu pension de l Etat,numeric,yes
+fin39a_etat_compte,Transferts Etat via compte,numeric,,,fin39a_etat_compte,Transferts Etat via compte,numeric,yes
+fin39b_etat_mobile,Transferts Etat via mobile,numeric,,,fin39b_etat_mobile,Transferts Etat via mobile,numeric,yes
+fin39c1_etat_especes,Transferts Etat en especes,numeric,,,fin39c1_etat_especes,Transferts Etat en especes,numeric,yes
+fin39c2_etat_carte,Transferts Etat via carte,numeric,,,fin39c2_etat_carte,Transferts Etat via carte,numeric,yes
+fin42_paie_agri,A recu paiements agricoles,numeric,,,fin42_paie_agri,A recu paiements agricoles,numeric,yes
+fin43a_agri_compte,Paiements agricoles via compte,numeric,,,fin43a_agri_compte,Paiements agricoles via compte,numeric,yes
+fin43b_agri_mobile,Paiements agricoles via mobile,numeric,,,fin43b_agri_mobile,Paiements agricoles via mobile,numeric,yes
+fin43c1_agri_especes,Paiements agricoles en especes,numeric,,,fin43c1_agri_especes,Paiements agricoles en especes,numeric,yes
+fin43c2_agri_carte,Paiements agricoles via carte,numeric,,,fin43c2_agri_carte,Paiements agricoles via carte,numeric,yes
+fin46_paie_auto_emploi,A recu paiements auto-emploi,numeric,,,fin46_paie_auto_emploi,A recu paiements auto-emploi,numeric,yes
+fin47a_autoemploi_compte,Paiements auto-emploi via compte,numeric,,,fin47a_autoemploi_compte,Paiements auto-emploi via compte,numeric,yes
+fin47b_autoemploi_mobile,Paiements auto-emploi via mobile,numeric,,,fin47b_autoemploi_mobile,Paiements auto-emploi via mobile,numeric,yes
+fin47c1_autoemploi_especes,Paiements auto-emploi en especes,numeric,,,fin47c1_autoemploi_especes,Paiements auto-emploi en especes,numeric,yes
+fin47c2_autoemploi_carte,Paiements auto-emploi via carte,numeric,,,fin47c2_autoemploi_carte,Paiements auto-emploi via carte,numeric,yes
+receive_wages,Indicateur: a recu des salaires,numeric,,,receive_wages,Indicateur: a recu des salaires,numeric,yes
+receive_transfers,Indicateur: a recu transferts etatiques,numeric,,,receive_transfers,Indicateur: a recu transferts etatiques,numeric,yes
+receive_pension,Indicateur: a recu une pension,numeric,,,receive_pension,Indicateur: a recu une pension,numeric,yes
+receive_agriculture,Indicateur: a recu paiements agricoles,numeric,,,receive_agriculture,Indicateur: a recu paiements agricoles,numeric,yes
+pay_utilities,Indicateur: a paye des factures,numeric,,,pay_utilities,Indicateur: a paye des factures,numeric,yes
+remittances,Indicateur: a envoye ou recu transferts,numeric,,,remittances,Indicateur: a envoye ou recu transferts,numeric,yes
+pay_onlne,Indicateur: a effectue paiement en ligne,numeric,,,pay_onlne,Indicateur: a effectue paiement en ligne,numeric,yes
+pay_cash,Indicateur: a paye en especes a la livraison,numeric,,,pay_cash,Indicateur: a paye en especes a la livraison,numeric,yes
