@@ -17,4 +17,5 @@ FINDEX_INPUT_FILE  <- "findex_uemoa_harmonise.csv"
 
 # ── Output file names ──────────────────────────────────────────────────────
 FINDEX_OUTPUT_FILE        <- "findex_uemoa_clean.csv"
+FINDEX_FEATURES_FILE      <- "findex_uemoa_features.csv"   # + variables derivees
 FINDEX_OUTPUT_QAQC_REPORT <- "qaqc_findex_report.html"

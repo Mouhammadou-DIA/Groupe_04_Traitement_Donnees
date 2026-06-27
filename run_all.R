@@ -6,6 +6,7 @@
 #   Rscript run_all.R step1     # etape 1 seulement (dictionnaire initial)
 #   Rscript run_all.R step2     # etape 2 seulement (application dictionnaire)
 #   Rscript run_all.R step3     # etape 3 seulement (nettoyage + output)
+#   Rscript run_all.R features  # variables derivees socio-demo & acces
 #   Rscript run_all.R qaqc      # rapport QAQC seulement
 # =============================================================================
 
@@ -60,6 +61,10 @@ PIPELINE_SCRIPTS <- list(
        path = here("2_clean_and_merge"),
        desc = "Nettoyage complet et output consolide"),
 
+  list(step = "features",
+       path = here("3_features_sociodemo"),
+       desc = "Variables derivees socio-demo & acces"),
+
   list(step = "qaqc",
        path = here("9_qaqc/1_survey_data_qaqc"),
        desc = "Rapport QAQC")
@@ -75,7 +80,7 @@ collect_scripts <- function(target) {
   } else {
     entries <- Filter(function(e) e$step == target, PIPELINE_SCRIPTS)
     if (length(entries) == 0)
-      stop(glue("Etape inconnue: '{target}'. Options: all, step1, step2, step3, qaqc"))
+      stop(glue("Etape inconnue: '{target}'. Options: all, step1, step2, step3, features, qaqc"))
   }
   scripts <- character(0)
   for (e in entries) {
