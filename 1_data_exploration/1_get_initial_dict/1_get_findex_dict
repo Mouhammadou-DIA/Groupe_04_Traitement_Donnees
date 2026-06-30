@@ -1,0 +1,52 @@
+# =============================================================================
+# 1_get_findex_dict.R
+# Step 1 — Generate the initial variable dictionary from the harmonised Findex CSV.
+# Output: data/aux_file/dictionary_findex_init.csv
+#         → To be filled manually then saved as dictionary_findex_filled.csv
+# =============================================================================
+
+rm(list = ls()); gc()
+
+pacman::p_load(tibble, dplyr, readr, data.table, here)
+
+source(here("config.R"))
+
+# ── Read harmonised input ────────────────────────────────────────────────────
+df <- read_csv(
+  file.path(FINDEX_INPUT_PATH, FINDEX_INPUT_FILE),
+  show_col_types = FALSE
+)
+
+message(glue::glue("Input loaded: {nrow(df)} rows x {ncol(df)} columns"))
+
+# ── Build initial dictionary ─────────────────────────────────────────────────
+dict_init <- tibble(
+  var_orig  = names(df),
+  label_orig = sapply(df, function(x) {
+    lbl <- attr(x, "label")
+    if (!is.null(lbl) && nchar(lbl) > 0) lbl else NA_character_
+  }),
+  type_orig = sapply(df, function(x) {
+    if (is.character(x))  "character"
+    else if (is.numeric(x)) "numeric"
+    else if (is.factor(x))  "factor"
+    else class(x)[1]
+  }),
+  n_unique  = sapply(df, function(x) length(unique(na.omit(x)))),
+  pct_na    = round(sapply(df, function(x) mean(is.na(x)) * 100), 1),
+  # Columns to be filled manually:
+  var_new   = names(df),   # pre-filled with same name (edit if renaming needed)
+  label_new = NA_character_,
+  type_new  = NA_character_,
+  keep      = "yes"
+)
+
+# ── Save ─────────────────────────────────────────────────────────────────────
+fwrite(
+  dict_init,
+  file.path(AUX_FILE_PATH, "dictionary_findex_init.csv")
+)
+
+message("Initial Findex dictionary saved to data/aux_file/dictionary_findex_init.csv")
+message("Next step: fill var_new, label_new, type_new, keep — then save as dictionary_findex_filled.csv")
+

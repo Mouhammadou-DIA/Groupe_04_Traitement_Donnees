@@ -1,0 +1,74 @@
+# =============================================================================
+# 1_apply_findex_dict.R
+# Step 2 — Apply the filled variable dictionary to the harmonised Findex data.
+# Reads: data/aux_file/dictionary_findex_filled.csv
+# Output: data/intermediates/findex_renamed.csv
+#         data/aux_file/dictionary_modality_findex_init.csv
+# =============================================================================
+
+rm(list = ls()); gc()
+
+pacman::p_load(readr, dplyr, purrr, tibble, data.table, glue, here)
+
+source(here("config.R"))
+source(here("utils.R"))
+
+# ── Read data and dictionary ─────────────────────────────────────────────────
+df <- read_csv(
+  file.path(FINDEX_INPUT_PATH, FINDEX_INPUT_FILE),
+  show_col_types = FALSE
+)
+
+dict_filled <- read_csv(
+  file.path(AUX_FILE_PATH, "dictionary_findex_filled.csv"),
+  show_col_types = FALSE
+) %>%
+  mutate(
+    keep     = tolower(trimws(keep)),
+    type_new = tolower(trimws(type_new))
+  )
+
+# ── Alignment check ──────────────────────────────────────────────────────────
+dict_init <- read_csv(
+  file.path(AUX_FILE_PATH, "dictionary_findex_init.csv"),
+  show_col_types = FALSE
+)
+
+vars_missing <- setdiff(dict_init$var_orig, dict_filled$var_orig)
+if (length(vars_missing) > 0) {
+  warning(glue("{length(vars_missing)} variable(s) in init dict but not in filled dict: ",
+               "{paste(vars_missing, collapse=', ')}"))
+} else {
+  message("Dictionary alignment check: OK")
+}
+
+# ── Apply variable dictionary ────────────────────────────────────────────────
+df_renamed <- apply_var_dictionary(df = df, dict = dict_filled)
+
+message(glue("After dict: {nrow(df_renamed)} rows x {ncol(df_renamed)} columns kept"))
+
+# ── Generate modality dictionary for factor/character variables ───────────────
+mod_dict_init <- map_dfr(names(df_renamed), function(v) {
+  x <- df_renamed[[v]]
+  if (is.factor(x) && !is.null(levels(x))) {
+    tibble(var_name = v, code_orig = NA_character_, label_init = levels(x), label_new = levels(x))
+  } else if (is.character(x)) {
+    vals <- sort(unique(na.omit(x)))
+    if (length(vals) <= 30)
+      tibble(var_name = v, code_orig = vals, label_init = vals, label_new = vals)
+  }
+})
+
+if (nrow(mod_dict_init) > 0) {
+  fwrite(mod_dict_init,
+         file.path(AUX_FILE_PATH, "dictionary_modality_findex_init.csv"))
+  message(glue("Modality dictionary saved ({nrow(mod_dict_init)} entries)"))
+}
+
+# ── Save renamed intermediate ─────────────────────────────────────────────────
+fwrite(df_renamed,
+       file.path(FINDEX_INTERMEDIATE_PATH, "findex_renamed.csv"))
+
+message(glue("Saved: data/intermediates/findex_renamed.csv"))
+message("Next step: fill label_new in dictionary_modality_findex_init.csv → dictionary_modality_findex_filled.csv")
+
