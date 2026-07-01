@@ -1,0 +1,183 @@
+# =============================================================================
+# 1_qaqc_findex.R
+# Step 5 — Render the QAQC HTML report for the Findex UEMOA clean dataset.
+#
+# All configuration is centralised in QAQC_PARAMS below.
+# To adapt for a new edition: modify QAQC_PARAMS only.
+#
+# Reads:  data/output/findex_uemoa_clean.csv
+# Writes: data/output_qaqc/qaqc_findex_report.html
+# =============================================================================
+
+rm(list = ls()); gc()
+
+# Définir le chemin de Pandoc s'il n'est pas dans le PATH de R
+if (Sys.getenv("RMARKDOWN_PANDOC") == "") {
+  possible_paths <- c(
+    file.path(Sys.getenv("LOCALAPPDATA"), "Pandoc"),
+    file.path(Sys.getenv("ProgramFiles"), "Pandoc"),
+    "C:/Users/DELL/AppData/Local/Pandoc"
+  )
+  for (path in possible_paths) {
+    if (dir.exists(path) && file.exists(file.path(path, "pandoc.exe"))) {
+      Sys.setenv(RMARKDOWN_PANDOC = path)
+      # Ajouter également au PATH car rmarkdown vérifie le PATH sous Windows
+      Sys.setenv(PATH = paste(path, Sys.getenv("PATH"), sep = ";"))
+      break
+    }
+  }
+}
+
+pacman::p_load(rmarkdown, glue, here)
+
+source(here("config.R"))
+
+# =============================================================================
+# QAQC PARAMETERS — modify this section to adapt to a new survey edition
+# =============================================================================
+
+QAQC_PARAMS <- list(
+
+  # ── Input file ─────────────────────────────────────────────────────────────
+  input_file = here(FINDEX_OUTPUT_PATH, FINDEX_OUTPUT_FILE),
+
+  # ── Survey design ──────────────────────────────────────────────────────────
+  weight_var  = "wgt",          # sampling weight column
+  strata_var  = "code_pays",    # stratification = country (no within-country strata)
+  cluster_var = NULL,           # no PSU/cluster variable in Findex microdata
+
+  # ── Unique row identifier ──────────────────────────────────────────────────
+  id_vars = c("code_pays", "wpid_random"),
+
+  # ── Grouping variable for country breakdowns ────────────────────────────────
+  country_var = "code_pays",
+
+  # ── Numeric variables for univariate analysis ───────────────────────────────
+  vars_numeric = c("age", "wgt", "epargne_totale"),
+
+  # ── Categorical variables for univariate analysis ───────────────────────────
+  vars_categ = c(
+    "sexe", "education", "quintile_revenu", "actif",
+    "account", "account_fin", "account_mob", "mobileowner",
+    "fin48_id_nat", "saved", "borrowed",
+    "fin24_fonds_urgence", "fin25_source_urgence"
+  ),
+
+  # ── Key Findex indicators (bivariate section) ────────────────────────────────
+  # numerator_expr and denominator_filter are R expressions evaluated on the df
+  indicators = list(
+
+    list(
+      label              = "Taux de bancarisation (tout type de compte)",
+      numerator_expr     = "account == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe", "education", "quintile_revenu")
+    ),
+    list(
+      label              = "Taux de possession compte institution financiere",
+      numerator_expr     = "account_fin == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe")
+    ),
+    list(
+      label              = "Taux de possession mobile money",
+      numerator_expr     = "account_mob == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe", "quintile_revenu")
+    ),
+    list(
+      label              = "Taux d epargne (12 derniers mois)",
+      numerator_expr     = "saved == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe", "education")
+    ),
+    list(
+      label              = "Taux d emprunt (12 derniers mois)",
+      numerator_expr     = "borrowed == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe")
+    ),
+    list(
+      label              = "Taux possession telephone portable",
+      numerator_expr     = "mobileowner == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe", "quintile_revenu")
+    ),
+    list(
+      label              = "Taux epargne via institution financiere",
+      numerator_expr     = "!is.na(fin17a_epargne_inst_fin) & fin17a_epargne_inst_fin == 1",
+      denominator_filter = "saved == 1",
+      breakdown_vars     = c("code_pays", "sexe")
+    ),
+    list(
+      label              = "Taux epargne via tontine (informel)",
+      numerator_expr     = "!is.na(fin17b_epargne_tontine) & fin17b_epargne_tontine == 1",
+      denominator_filter = "saved == 1",
+      breakdown_vars     = c("code_pays", "sexe")
+    ),
+    list(
+      label              = "Taux reception transferts domestiques",
+      numerator_expr     = "fin28_recep_transfert == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe")
+    ),
+    list(
+      label              = "Taux paiement factures (12 derniers mois)",
+      numerator_expr     = "fin30_paie_factures == 1",
+      denominator_filter = "age >= 15",
+      breakdown_vars     = c("code_pays", "sexe")
+    )
+  ),
+
+  # ── Consistency checks (flagged issues) ─────────────────────────────────────
+  consistency_checks = list(
+    list(
+      label          = "Carte debit sans compte (flag_fin2_carte_debit)",
+      condition_expr = "!is.na(flag_fin2_carte_debit) & flag_fin2_carte_debit == TRUE"
+    ),
+    list(
+      label          = "Acces mobile sans telephone (flag_fin5_mobile_acces_compte)",
+      condition_expr = "!is.na(flag_fin5_mobile_acces_compte) & flag_fin5_mobile_acces_compte == TRUE"
+    ),
+    list(
+      label          = "Transfert mobile sans telephone (flag_fin27b_envoi_via_mobile)",
+      condition_expr = "!is.na(flag_fin27b_envoi_via_mobile) & flag_fin27b_envoi_via_mobile == TRUE"
+    ),
+    list(
+      label          = "Epargnant sans instrument identifie (flag_saved)",
+      condition_expr = "!is.na(flag_saved) & flag_saved == TRUE"
+    ),
+    list(
+      label          = "Age superieur a 95 ans (flag_age)",
+      condition_expr = "!is.na(flag_age) & flag_age == TRUE"
+    ),
+    list(
+      label          = "Milieu de residence manquant (limitation Findex 2017)",
+      condition_expr = "rep(TRUE, nrow(df))"   # always 100% — documented limitation
+    )
+  ),
+
+  # ── Report metadata ─────────────────────────────────────────────────────────
+  report_title    = "Global Findex 2017 UEMOA — Rapport qualite et statistiques descriptives",
+  report_subtitle = "QAQC post-nettoyage | 7 pays UEMOA | N = 7 000 individus",
+  report_author   = "Groupe 4 — Pipeline traitement donnees enquetes",
+  output_file     = FINDEX_OUTPUT_QAQC_REPORT
+)
+
+# =============================================================================
+# RENDER REPORT
+# =============================================================================
+
+message(strrep("=", 60))
+message("Rendering QAQC report...")
+message(strrep("=", 60))
+
+rmarkdown::render(
+  input       = here("9_qaqc/1_survey_data_qaqc/qaqc_findex_report.Rmd"),
+  output_file = QAQC_PARAMS$output_file,
+  output_dir  = here(FINDEX_OUTPUT_QAQC_PATH),
+  params      = list(qaqc_params = QAQC_PARAMS),
+  envir       = new.env(parent = globalenv())
+)
+
+message(glue("Report saved to data/output_qaqc/{QAQC_PARAMS$output_file}"))
