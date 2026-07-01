@@ -1,0 +1,440 @@
+---
+title:    "`r params$qaqc_params$report_title`"
+subtitle: "`r params$qaqc_params$report_subtitle`"
+author:   "`r params$qaqc_params$report_author`"
+date:     "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    theme: cosmo
+    highlight: tango
+    code_folding: hide
+params:
+  qaqc_params: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, warning=FALSE, message=FALSE,
+                      fig.pos="H", out.extra="")
+
+pacman::p_load(
+  dplyr, tidyr, readr, stringr, forcats,
+  ggplot2, scales, patchwork,
+  knitr, kableExtra,
+  survey, Hmisc, glue, data.table
+)
+
+p <- params$qaqc_params  # shorthand
+
+# ── Styling helpers ────────────────────────────────────────────────────────────
+qaqc_table <- function(df, caption="", digits=1, ...) {
+  kable(df, caption=caption, digits=digits, format="html", ...) |>
+    kable_styling(bootstrap_options=c("striped","hover","condensed","responsive"),
+                  full_width=FALSE, font_size=13)
+}
+
+theme_qaqc <- function() {
+  theme_minimal(base_size=10) +
+    theme(
+      plot.title       = element_text(size=11, face="bold", color="#1F618D"),
+      plot.subtitle    = element_text(size=9,  color="grey40"),
+      axis.text        = element_text(size=8),
+      axis.title       = element_text(size=9),
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color="grey92"),
+      legend.position  = "bottom",
+      strip.text       = element_text(size=9, face="bold")
+    )
+}
+
+# ── Survey design ──────────────────────────────────────────────────────────────
+build_svy_design <- function(df, p) {
+  svydesign(
+    ids     = if (!is.null(p$cluster_var) && p$cluster_var %in% names(df))
+                as.formula(paste0("~", p$cluster_var)) else ~1,
+    strata  = if (!is.null(p$strata_var) && p$strata_var %in% names(df))
+                as.formula(paste0("~", p$strata_var)) else NULL,
+    weights = as.formula(paste0("~", p$weight_var)),
+    data    = df, nest = TRUE
+  )
+}
+
+# ── Weighted stats ─────────────────────────────────────────────────────────────
+wtd_stats <- function(svy, var, weight_var) {
+  df_v <- svy$variables
+  x <- df_v[[var]]; w <- df_v[[weight_var]]
+  ok <- !is.na(x) & !is.na(w) & w > 0
+  x_ok <- x[ok]; w_ok <- w[ok]
+  n_eff <- round(sum(w_ok)^2 / sum(w_ok^2))
+  svy_sub <- subset(svy, !is.na(svy$variables[[var]]))
+  est_mean <- svymean(as.formula(paste0("~", var)), svy_sub, na.rm=TRUE)
+  w_mean <- coef(est_mean)[1]; w_se <- SE(est_mean)[1]
+  est_var  <- svyvar(as.formula(paste0("~", var)), svy_sub, na.rm=TRUE)
+  w_sd     <- sqrt(as.numeric(est_var)[1])
+  wtd_q <- tryCatch(
+    Hmisc::wtd.quantile(x_ok, weights=w_ok, probs=c(0,.25,.5,.75,1)),
+    error = function(e) {
+      ord <- order(x_ok); cw <- cumsum(w_ok[ord])/sum(w_ok)
+      sapply(c(0,.25,.5,.75,1), function(q) x_ok[ord][which(cw>=q)[1]])
+    }
+  )
+  data.frame(
+    Statistic = c("N (non-missing)","N (missing)","Effective N","Sum of weights",
+                  "Weighted mean","Weighted SE","Weighted std dev",
+                  "Min","P25","Median","P75","Max"),
+    Value = c(format(sum(ok),big.mark=","), format(sum(!ok),big.mark=","),
+              format(n_eff,big.mark=","), format(round(sum(w_ok)),big.mark=","),
+              round(w_mean,2), round(w_se,4), round(w_sd,2),
+              round(wtd_q[1],2), round(wtd_q[2],2), round(wtd_q[3],2),
+              round(wtd_q[4],2), round(wtd_q[5],2))
+  )
+}
+
+wtd_freq <- function(svy, var, weight_var) {
+  df_v <- svy$variables |> filter(!is.na(.data[[var]]))
+  df_v |> group_by(.data[[var]]) |>
+    summarise(N_wtd = sum(.data[[weight_var]]), .groups="drop") |>
+    arrange(desc(N_wtd)) |>
+    mutate(Pct_wtd=round(N_wtd/sum(N_wtd)*100,1), Cum_pct=cumsum(Pct_wtd),
+           N_wtd=round(N_wtd)) |>
+    rename(Category=1)
+}
+
+weighted_prop <- function(df, numerator_expr, denom_filter, p) {
+  df_d <- df |> filter(eval(parse(text=denom_filter)))
+  if (nrow(df_d)==0) return(data.frame(n_wtd=0,pct=NA,ci_low=NA,ci_high=NA))
+  svy_d <- build_svy_design(df_d, p)
+  svy_d$variables$.ind <- as.numeric(eval(parse(text=numerator_expr), envir=svy_d$variables))
+  est <- svymean(~.ind, svy_d, na.rm=TRUE); ci <- confint(est, level=0.95)
+  data.frame(n_wtd=round(sum(df_d[[p$weight_var]],na.rm=TRUE)),
+             pct=coef(est)[1]*100, ci_low=ci[1]*100, ci_high=ci[2]*100)
+}
+
+weighted_prop_by <- function(df, numerator_expr, denom_filter, p, by_var) {
+  df |> filter(eval(parse(text=denom_filter)), !is.na(.data[[by_var]])) |>
+    group_by(.data[[by_var]]) |>
+    group_map(~ {
+      res <- tryCatch(weighted_prop(.x, numerator_expr, "TRUE", p),
+                      error = function(e) data.frame(n_wtd=nrow(.x),pct=NA,ci_low=NA,ci_high=NA))
+      res[[by_var]] <- .y[[by_var]]; res
+    }) |> bind_rows() |> relocate(all_of(by_var))
+}
+```
+
+```{r load-data}
+df <- read_csv(p$input_file, show_col_types=FALSE)
+n_rows  <- nrow(df)
+n_cols  <- ncol(df)
+n_indiv <- n_distinct(df[[p$id_vars[2]]])
+n_pays  <- n_distinct(df[[p$country_var]])
+svy_design <- build_svy_design(df, p)
+```
+
+# Apercu du jeu de donnees
+
+```{r overview}
+rows_by_country <- df |> count(code_pays) |> rename(Pays=code_pays, N=n)
+
+overview <- data.frame(
+  Indicateur = c("Total individus","Pays couverts","Variables",
+                 "Variable poids","Annee(s) enquete"),
+  Valeur = c(format(n_rows,big.mark=","), n_pays, n_cols,
+             p$weight_var, paste(sort(unique(df$annee_enquete)), collapse=", "))
+)
+qaqc_table(overview, caption="Synthese du jeu de donnees")
+qaqc_table(rows_by_country, caption="Observations par pays")
+```
+
+## Note sur le milieu de residence
+
+> **Limitation connue** : La variable `milieu` (rural/urbain) est **non disponible** dans les microdonnees publiques du Global Findex 2017. La Banque Mondiale ne publie pas cette information au niveau individuel dans le fichier de microdonnees, bien que Gallup la collecte dans le cadre du World Poll. Cette absence a ete documentee et confirmee dans le pipeline de traitement.
+
+\newpage
+
+# Qualite des donnees
+
+## Valeurs manquantes
+
+```{r missing}
+na_df <- df |>
+  summarise(across(everything(), ~sum(is.na(.)))) |>
+  pivot_longer(everything(), names_to="Variable", values_to="N_missing") |>
+  mutate(
+    Pct_missing = round(N_missing/n_rows*100,1),
+    Statut = case_when(
+      Pct_missing == 0   ~ "Complet",
+      Pct_missing < 10   ~ "< 10%",
+      Pct_missing < 50   ~ "10 - 50%",
+      TRUE               ~ "> 50%"
+    )
+  ) |>
+  filter(N_missing > 0) |>
+  arrange(desc(Pct_missing))
+
+qaqc_table(na_df,
+  caption="Valeurs manquantes par variable (variables avec au moins un NA)",
+  col.names=c("Variable","N manquants","% manquant","Statut"))
+```
+
+```{r missing-plot, fig.cap="Taux de valeurs manquantes - top 20 variables"}
+if (nrow(na_df) > 0) {
+  na_plot <- na_df |> slice_head(n=20) |>
+    mutate(Variable=fct_reorder(Variable, Pct_missing))
+  ggplot(na_plot, aes(x=Pct_missing, y=Variable, fill=Statut)) +
+    geom_col(width=0.7) +
+    geom_text(aes(label=paste0(Pct_missing,"%")), hjust=-0.1, size=2.8) +
+    scale_fill_manual(values=c("Complet"="#27AE60","< 10%"="#F39C12",
+                                "10 - 50%"="#E67E22","> 50%"="#C0392B")) +
+    scale_x_continuous(limits=c(0,115), labels=label_percent(scale=1)) +
+    labs(x="% manquant", y=NULL, fill=NULL,
+         title="Taux de valeurs manquantes — top 20",
+         subtitle="Variables de questions filtres: NA structurels (normaux)") +
+    theme_qaqc()
+}
+```
+
+## Controles de coherence
+
+```{r consistency}
+checks_df <- purrr::map_dfr(p$consistency_checks, function(chk) {
+  n_issues <- tryCatch(
+    sum(eval(parse(text=chk$condition_expr), envir=df), na.rm=TRUE),
+    error = function(e) NA_integer_
+  )
+  data.frame(
+    Controle = chk$label,
+    N_problemes = n_issues,
+    Pct = round(n_issues/n_rows*100, 3),
+    Statut = ifelse(is.na(n_issues),"Erreur",ifelse(n_issues==0,"OK","Problemes detectes"))
+  )
+})
+qaqc_table(checks_df,
+  caption="Resultats des controles de coherence",
+  col.names=c("Controle","N problemes","% lignes","Statut"))
+```
+
+\newpage
+
+# Analyse univariee
+
+## Variables numeriques
+
+```{r numeric-univariate, results='asis'}
+for (v in intersect(p$vars_numeric, names(df))) {
+  if (all(is.na(df[[v]]))) next
+  cat(glue("\n\n### {v}\n\n"))
+  stats <- wtd_stats(svy_design, v, p$weight_var)
+  print(qaqc_table(stats, caption=glue("Statistiques descriptives ponderees — {v}")))
+  df_v <- df |> filter(!is.na(.data[[v]]), !is.na(.data[[p$weight_var]]))
+  p_hist <- ggplot(df_v, aes(x=.data[[v]], weight=.data[[p$weight_var]])) +
+    geom_histogram(fill="#2E86C1", color="white", bins=30, alpha=0.85) +
+    scale_x_continuous(labels=label_comma()) +
+    labs(x=v, y="Effectif pondere", title=glue("Distribution ponderee — {v}")) +
+    theme_qaqc()
+  p_box <- ggplot(df_v |> filter(!is.na(code_pays)),
+                  aes(x=fct_reorder(code_pays, .data[[v]], median),
+                      y=.data[[v]], fill=code_pays)) +
+    geom_boxplot(alpha=0.7, outlier.size=0.8, outlier.color="#C0392B",
+                 show.legend=FALSE) +
+    coord_flip() +
+    labs(x=NULL, y=v, title="Par pays") +
+    theme_qaqc()
+  print(p_hist + p_box + plot_layout(widths=c(2,1)))
+  cat("\n\n")
+}
+```
+
+## Variables categorielles
+
+```{r categ-univariate, results='asis'}
+for (v in intersect(p$vars_categ, names(df))) {
+  if (all(is.na(df[[v]]))) next
+  cat(glue("\n\n### {v}\n\n"))
+  tab <- wtd_freq(svy_design, v, p$weight_var)
+  print(qaqc_table(tab,
+    caption=glue("Frequences ponderees — {v}"),
+    col.names=c(v,"N pondere","% pondere","% cumule")))
+  tab_plot <- if (nrow(tab)>12) slice_head(tab, n=12) else tab
+  p_bar <- ggplot(tab_plot,
+                  aes(x=fct_reorder(as.character(Category),Pct_wtd), y=Pct_wtd)) +
+    geom_col(fill="#2E86C1", alpha=0.85, width=0.7) +
+    geom_text(aes(label=paste0(Pct_wtd,"%")), hjust=-0.1, size=2.8) +
+    coord_flip() +
+    scale_y_continuous(limits=c(0, max(tab_plot$Pct_wtd)*1.2),
+                       labels=label_percent(scale=1)) +
+    labs(x=NULL, y="% pondere", title=glue("Distribution ponderee — {v}")) +
+    theme_qaqc()
+  print(p_bar)
+  cat("\n\n")
+}
+```
+
+\newpage
+
+# Indicateurs cles de l inclusion financiere
+
+```{r indicators, results='asis'}
+for (ind in p$indicators) {
+  cat(glue("\n\n## {ind$label}\n\n"))
+  overall <- tryCatch(
+    weighted_prop(df, ind$numerator_expr, ind$denominator_filter, p),
+    error = function(e) data.frame(n_wtd=NA,pct=NA,ci_low=NA,ci_high=NA)
+  )
+  print(qaqc_table(
+    data.frame(Niveau="Global",
+               N_pondere=format(overall$n_wtd,big.mark=","),
+               Taux=round(overall$pct,1),
+               IC95=glue("[{round(overall$ci_low,1)}, {round(overall$ci_high,1)}]")),
+    caption=glue("Estimation globale ponderee — {ind$label}"),
+    col.names=c("Niveau","N pondere (denom.)","Taux (%)","IC 95%")))
+  for (by_var in intersect(ind$breakdown_vars, names(df))) {
+    breakdown <- tryCatch(
+      weighted_prop_by(df, ind$numerator_expr, ind$denominator_filter, p, by_var),
+      error = function(e) NULL
+    )
+    if (is.null(breakdown) || all(is.na(breakdown$pct))) next
+    print(qaqc_table(
+      breakdown |>
+        mutate(IC95=glue("[{round(ci_low,1)}, {round(ci_high,1)}]")) |>
+        select(-ci_low,-ci_high),
+      caption=glue("{ind$label} — par {by_var}"),
+      col.names=c(by_var,"N pondere","Taux (%)","IC 95%")))
+    if (nrow(breakdown) <= 15) {
+      p_plot <- ggplot(breakdown,
+                       aes(x=fct_reorder(as.character(.data[[by_var]]),pct), y=pct)) +
+        geom_col(fill="#1F618D", alpha=0.85, width=0.65) +
+        geom_errorbar(aes(ymin=ci_low,ymax=ci_high),
+                      width=0.25, color="#C0392B", linewidth=0.6) +
+        geom_text(aes(label=paste0(round(pct,1),"%")), hjust=-0.15, size=2.8) +
+        coord_flip() +
+        scale_y_continuous(limits=c(0,min(108,max(breakdown$pct,na.rm=TRUE)*1.25)),
+                           labels=label_percent(scale=1)) +
+        labs(x=NULL, y="Taux (%)",
+             title=glue("{ind$label}"),
+             subtitle=glue("Par {by_var} — barres d erreur: IC 95%")) +
+        theme_qaqc()
+      print(p_plot)
+      cat("\n\n")
+    }
+  }
+}
+```
+
+\newpage
+
+# Analyse comparative inter-pays
+
+## Bancarisation par pays et par sexe
+
+```{r bancarisation-pays-sexe, fig.height=5}
+bk_df <- df |>
+  filter(!is.na(account), !is.na(sexe), !is.na(.data[[p$weight_var]])) |>
+  group_by(code_pays, sexe) |>
+  summarise(taux=weighted.mean(account==1, w=.data[[p$weight_var]], na.rm=TRUE)*100,
+            .groups="drop")
+
+ggplot(bk_df, aes(x=fct_reorder(code_pays,taux,max), y=taux, fill=as.character(sexe))) +
+  geom_col(position="dodge", alpha=0.85, width=0.7) +
+  geom_text(aes(label=paste0(round(taux,0),"%")),
+            position=position_dodge(0.7), hjust=-0.1, size=2.5) +
+  coord_flip() +
+  scale_y_continuous(limits=c(0,90), labels=label_percent(scale=1)) +
+  scale_fill_manual(values=c("Masculin"="#2E86C1","Feminin"="#E74C3C"),
+                    labels=c("Masculin","Feminin")) +
+  labs(x=NULL, y="Taux de bancarisation (%)", fill="Sexe",
+       title="Taux de bancarisation par pays et sexe (pondere)",
+       subtitle="Tout type de compte — adultes 15+") +
+  theme_qaqc()
+```
+
+## Mobile money vs banque formelle par pays
+
+```{r mobile-vs-banque, fig.height=5}
+mm_df <- df |>
+  filter(!is.na(.data[[p$weight_var]])) |>
+  group_by(code_pays) |>
+  summarise(
+    banque_formelle = weighted.mean(account_fin==1, w=.data[[p$weight_var]], na.rm=TRUE)*100,
+    mobile_money    = weighted.mean(account_mob==1, w=.data[[p$weight_var]], na.rm=TRUE)*100,
+    .groups="drop"
+  ) |>
+  pivot_longer(c(banque_formelle,mobile_money),
+               names_to="type_compte", values_to="taux") |>
+  mutate(type_compte=recode(type_compte,
+    banque_formelle="Banque formelle", mobile_money="Mobile money"))
+
+ggplot(mm_df, aes(x=fct_reorder(code_pays,taux,max),y=taux,fill=type_compte)) +
+  geom_col(position="dodge", alpha=0.85, width=0.7) +
+  coord_flip() +
+  scale_y_continuous(labels=label_percent(scale=1)) +
+  scale_fill_manual(values=c("Banque formelle"="#1F618D","Mobile money"="#27AE60")) +
+  labs(x=NULL, y="Taux (%)", fill=NULL,
+       title="Banque formelle vs Mobile money par pays",
+       subtitle="Taux de possession ponderes — adultes 15+") +
+  theme_qaqc()
+```
+
+## Distribution de l epargne totale (nombre d instruments)
+
+```{r epargne-totale, fig.height=4}
+ep_df <- df |>
+  filter(!is.na(epargne_totale), !is.na(.data[[p$weight_var]])) |>
+  group_by(code_pays, epargne_totale) |>
+  summarise(n_wtd=sum(.data[[p$weight_var]]), .groups="drop") |>
+  group_by(code_pays) |>
+  mutate(pct=n_wtd/sum(n_wtd)*100) |> ungroup()
+
+ggplot(ep_df, aes(x=factor(epargne_totale), y=pct, fill=code_pays)) +
+  geom_col(alpha=0.85) +
+  facet_wrap(~code_pays, nrow=2) +
+  scale_y_continuous(labels=label_percent(scale=1)) +
+  scale_fill_brewer(palette="Set2", guide="none") +
+  labs(x="Nombre d instruments d epargne utilises (0-4)",
+       y="% (pondere)",
+       title="Distribution de l epargne totale par pays",
+       subtitle="0 = aucun instrument; 4 = tous les instruments declares") +
+  theme_qaqc()
+```
+
+\newpage
+
+# Poids de sondage
+
+```{r weights}
+w <- df[[p$weight_var]]
+w_stats <- data.frame(
+  Statistique = c("Min","P25","Mediane","Moyenne","P75","Max","CV (ecart-type/moyenne)","N negatifs/zero"),
+  Valeur = c(round(min(w,na.rm=TRUE),3), round(quantile(w,.25,na.rm=TRUE),3),
+             round(median(w,na.rm=TRUE),3), round(mean(w,na.rm=TRUE),3),
+             round(quantile(w,.75,na.rm=TRUE),3), round(max(w,na.rm=TRUE),3),
+             round(sd(w,na.rm=TRUE)/mean(w,na.rm=TRUE),3), sum(w<=0,na.rm=TRUE))
+)
+qaqc_table(w_stats, caption=glue("Statistiques des poids de sondage ({p$weight_var})"))
+
+ggplot(df, aes(x=.data[[p$weight_var]], fill=code_pays)) +
+  geom_histogram(bins=40, alpha=0.8, color="white") +
+  facet_wrap(~code_pays, scales="free_x", nrow=2) +
+  scale_fill_brewer(palette="Set2", guide="none") +
+  labs(x="Poids", y="Effectif",
+       title=glue("Distribution des poids de sondage par pays ({p$weight_var})")) +
+  theme_qaqc()
+```
+
+\newpage
+
+# Informations de session
+
+```{r session}
+data.frame(
+  Element = c("Version R","Rapport genere le","Fichier entree","N lignes","N colonnes"),
+  Valeur  = c(as.character(getRversion()),
+              format(Sys.time(), "%Y-%m-%d %H:%M"),
+              basename(p$input_file),
+              format(n_rows, big.mark=","),
+              n_cols)
+) |> qaqc_table(caption="Informations de session")
+```
